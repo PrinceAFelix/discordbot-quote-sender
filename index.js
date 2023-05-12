@@ -1,8 +1,12 @@
 require('dotenv/config');
 const express = require('express');
 const axios = require('axios');
+const fetch = require('node-fetch')
+
 
 const CronJob = require('cron').CronJob;
+
+const { quotes } = require('./quotes.js')
 
 const { Client, GatewayIntentBits, REST, Routes, EmbedBuilder } = require('discord.js');
 
@@ -20,9 +24,12 @@ const date = new Date();
 
 const DB = admin.firestore();
 const collectionRef = DB.collection('quotes');
-const testnumRef = DB.collection('number');
-// const collectionRef = DB.collection('test');
-// const testnumRef = DB.collection('testnum');
+const numRef = DB.collection('number');
+// const collectionRef = DB.collection('testquotes');
+// const numRef = DB.collection('testnum');
+
+const emoji_list = ["😀", "😁", "😂", "🤣", "😃", "😄", "😅", "😆", "😉", "😊", "😋", "😎", "😍", "😘", "😜", "😝", "😛", "🤑", "🤗", "🤔", "🤐", "🤓", "😇", "😏", "😶", "😐", "😑", "😬", "😳", "😴", "🙄", "🤕", "😷", "🤒", "🤢", "🤧", "🫶", "🫰"]
+
 
 function VerifyDiscordRequest(clientKey) {
     return function (req, res, buf, encoding) {
@@ -70,12 +77,30 @@ client.on('ready', async () => {
         embedLayout.spliceFields(0, 25)
         setIndex().then(i => {
             searchQuote(i.index).then((quote) => {
-                sendMessage(quote, true);
-                console.log('Daily Quote Sent: ' + getTimeDate(date))
+                if (quote == null) {
+                    console.log('Null... sending new quote')
+                    setIndex().then(i => {
+                        searchQuote(i.index).then((q) => {
+                            sendMessage(q, false);
+                        })
+                    })
+                    console.log('Daily Quote Sent')
+                } else {
+                    sendMessage(quote, true);
+                    console.log('Daily Quote Sent')
+                }
+
             })
         })
     }, null, true, 'America/Toronto');
     job.start();
+
+
+    client.users.fetch(`${process.env.USERID}`, false).then((user) => {
+        user.send('Hiiii')
+    })
+
+
 })
 
 
@@ -85,24 +110,42 @@ client.on('messageCreate', async message => {
 
 
     if (!message.author.bot || message.channel.type === '1') {
-        if (message.content.toLocaleLowerCase() == 'quotes') {
+        if (message.content.toLocaleLowerCase().includes('quote')) {
             embedLayout.spliceFields(0, 25)
             setIndex().then(i => {
                 searchQuote(i.index).then((quote) => {
-                    sendMessage(quote, false);
+                    if (quote == null) {
+                        console.log('Null... sending new quote')
+                        setIndex().then(i => {
+                            searchQuote(i.index).then((q) => {
+                                sendMessage(q, false);
+                            })
+                        })
+                        console.log('Quote Request Sent')
+                    } else {
+                        sendMessage(quote, false);
+                        console.log('Quote Request Sent')
+                    }
                 })
             })
-            console.log('Quote Sent: ' + getTimeDate(date))
+
         } else if (message.content.toLocaleLowerCase() === 'hi') {
             message.reply('hello')
         } else {
-            return;
+            const randomIndex = Math.floor(Math.random() * emoji_list.length);
+            const prev = randomIndex
+
+            message.reply(emoji_list[randomIndex])
         }
+
+
 
         return;
 
-
     }
+
+
+
 
 
 
@@ -111,12 +154,12 @@ client.on('messageCreate', async message => {
 
 const setIndex = async () => {
 
-    const snapshot = await testnumRef.orderBy('index').limit(1).get();
+    const snapshot = await numRef.orderBy('index').limit(1).get();
 
 
     if (!snapshot.empty) {
         const document = snapshot.docs[0];
-        testnumRef.doc(snapshot.docs[0].id).delete()
+        numRef.doc(snapshot.docs[0].id).delete()
         return document.data();
     }
 
@@ -207,23 +250,23 @@ const getGif = async () => {
     return gif.images.original.url;
 }
 
-function getTimeDate(date) {
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const year = date.getFullYear();
-    let hours = date.getHours();
-    const minutes = date.getMinutes();
+// function getTimeDate(date) {
+//     const month = date.getMonth() + 1;
+//     const day = date.getDate();
+//     const year = date.getFullYear();
+//     let hours = date.getHours();
+//     const minutes = date.getMinutes();
 
-    const amPm = hours < 12 ? 'AM' : 'PM';
+//     const amPm = hours < 12 ? 'AM' : 'PM';
 
-    if (hours > 12) {
-        hours -= 12;
-    } else if (hours === 0) {
-        hours = 12;
-    }
+//     if (hours > 12) {
+//         hours -= 12;
+//     } else if (hours === 0) {
+//         hours = 12;
+//     }
 
-    return `${month}/${day}/${year} @ ${hours}:${minutes}${amPm}`;
-}
+//     return `${month}/${day}/${year} @ ${hours}:${minutes}${amPm}`;
+// }
 
 
 // const lib = require('lib')({token: process.env.STDLIB_SECRET_TOKEN});
