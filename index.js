@@ -8,7 +8,7 @@ const CronJob = require('cron').CronJob;
 
 const { quotes } = require('./quotes.js')
 
-const { Client, GatewayIntentBits, REST, Routes, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, EmbedBuilder, Discord } = require('discord.js');
 
 
 var admin = require("firebase-admin");
@@ -29,6 +29,35 @@ const numRef = DB.collection('number');
 // const numRef = DB.collection('testnum');
 
 const emoji_list = ["😀", "😁", "😂", "🤣", "😃", "😄", "😅", "😆", "😉", "😊", "😋", "😎", "😍", "😘", "😜", "😝", "😛", "🤑", "🤗", "🤔", "🤐", "🤓", "😇", "😏", "😶", "😐", "😑", "😬", "😳", "😴", "🙄", "🤕", "😷", "🤒", "🤢", "🤧", "🫶", "🫰"]
+let previousCategory = null;
+
+const answers_yes = [
+    "As I see it, yes",
+    "It is certain",
+    "It is decidedly so",
+    "Most likely",
+    "Outlook good",
+    "Signs point to yes",
+    "Without a doubt",
+    "Yes",
+    "Yes - definitely",
+    "You may rely on it",
+]
+const answers_maybe = [
+    "Reply hazy, try again",
+    "Ask again later",
+    "Better not tell you now",
+    "Cannot predict now",
+    "Concentrate and ask again",
+]
+const answers_no = [
+    "Don't count on it",
+    "My reply is no",
+    "My sources say no",
+    "Outlook not so good",
+    "Very doubtful",
+]
+
 
 
 function VerifyDiscordRequest(clientKey) {
@@ -41,6 +70,7 @@ function VerifyDiscordRequest(clientKey) {
             res.status(401).send('Bad request signature');
             throw new Error('Bad request signature');
         }
+
     };
 
 
@@ -131,7 +161,39 @@ client.on('messageCreate', async message => {
 
         } else if (message.content.toLocaleLowerCase() === 'hi') {
             message.reply('hello')
-        } else {
+        } else if (message.content.toLocaleLowerCase().includes('?')) {
+            const category = getCategory();
+
+            // Select an answer from the corresponding category
+            let answer;
+            if (category === 0) {
+                answer = answers_yes[Math.floor(Math.random() * answers_yes.length)];
+            } else if (category === 1) {
+                answer = answers_maybe[Math.floor(Math.random() * answers_maybe.length)];
+            } else {
+                answer = answers_no[Math.floor(Math.random() * answers_no.length)];
+            }
+
+            message.reply('https://media.giphy.com/media/wC0ERZjnn5miiqrGfF/giphy.gif')
+
+            setTimeout(() => {
+                message.channel.messages.fetch({ limit: 1 })
+                    .then((messages) => {
+                        const lastMessage = messages.first();
+                        if (lastMessage.author.bot) {
+                            lastMessage.delete();
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Error while fetching messages:', error);
+                    });
+                message.reply(answer)
+            }, 3000)
+
+
+
+
+        } else if (!message.content.toLocaleLowerCase().includes('?')) {
             const randomIndex = Math.floor(Math.random() * emoji_list.length);
             const prev = randomIndex
 
@@ -192,6 +254,17 @@ const sendMessage = (quote, isDaily) => {
     });
 
 
+}
+
+
+function getCategory() {
+    let category;
+    do {
+        category = Math.floor(Math.random() * 3);
+    } while (category === previousCategory && category !== 0);
+
+    previousCategory = category;
+    return category;
 }
 
 // Perform a binary search for a quote with a specific ID
